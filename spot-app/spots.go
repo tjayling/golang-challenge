@@ -25,7 +25,7 @@ type Spots []Spot
 func main() {
 	results := endpoint(51.4935, 0.1178, 7000, "square")
 	for i, spot := range results {
-		fmt.Printf("%d: Name:%s Website: %s Location: %f, %f Description: %s, rating %f", i, spot.name, spot.website.String, spot.x, spot.y, spot.description.String, spot.rating)
+		fmt.Printf("%d: Name:%s Website: %s Location: %f, %f Description: %s, rating %f", i+1, spot.name, spot.website.String, spot.x, spot.y, spot.description.String, spot.rating)
 		fmt.Println()
 	}
 }
