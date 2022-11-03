@@ -1,4 +1,4 @@
-# backend-developer-test
+# GoLang Challenges
 My first program made with GoLang.
 
 I used PostGreSQL and Go to complete a couple of challenges.
