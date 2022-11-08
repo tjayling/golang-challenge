@@ -31,8 +31,26 @@ func main() {
 }
 
 func endpoint(lat float64, lon float64, rad float64, areaType string) Spots {
-	fmt.Println(lon, lat, rad, areaType)
-	var sql string
+	sql := generateSql(lat, lon, rad, areaType)
+	if sql == "" {
+		return nil
+	}
+	spots := getSpots(lat, lon, sql)
+	sortedSpots := quickSortStart(spots)
+	result := finalSort(sortedSpots)
+	return result
+}
+
+func finalSort(sortedSpots Spots) Spots {
+	for i := 1; i < len(sortedSpots); i++ {
+		if sortedSpots[i].distance-sortedSpots[i-1].distance < 0.0004498870783 && sortedSpots[i].rating > sortedSpots[i-1].rating {
+			sortedSpots[i], sortedSpots[i-1] = sortedSpots[i-1], sortedSpots[i]
+		}
+	}
+	return sortedSpots
+}
+
+func generateSql(lat float64, lon float64, rad float64, areaType string) string {
 	switch strings.ToLower(areaType) {
 	case "square":
 		rad /= 111139
@@ -45,23 +63,22 @@ func endpoint(lat float64, lon float64, rad float64, areaType string) Spots {
 		p4x := lon - float64(rad)
 		p4y := lat + float64(rad)
 		rad *= 111139
-
-		sql = fmt.Sprintf(`SELECT id, name, website, ST_X(coordinates::geometry), ST_Y(coordinates::geometry), description, rating FROM "MY_TABLE" WHERE ST_Intersects(ST_GEOMFROMTEXT('POLYGON((%f %f, %f %f, %f %f, %f %f, %f %f))'), "MY_TABLE".coordinates);`, p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y, p1x, p1y)
+		return fmt.Sprintf(`SELECT id, name, website, ST_X(coordinates::geometry), ST_Y(coordinates::geometry), description, rating FROM "MY_TABLE" WHERE ST_Intersects(ST_GEOMFROMTEXT('POLYGON((%f %f, %f %f, %f %f, %f %f, %f %f))'), "MY_TABLE".coordinates);`, p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y, p1x, p1y)
 	case "circle":
-		sql = fmt.Sprintf(`SELECT id, name, website, ST_X(coordinates::geometry), ST_Y(coordinates::geometry), description, rating FROM "MY_TABLE" WHERE ST_DistanceSphere("MY_TABLE".coordinates::geometry, ST_MakePoint(%f, %f)) <= %f;`, lon, lat, rad)
+		return fmt.Sprintf(`SELECT id, name, website, ST_X(coordinates::geometry), ST_Y(coordinates::geometry), description, rating FROM "MY_TABLE" WHERE ST_DistanceSphere("MY_TABLE".coordinates::geometry, ST_MakePoint(%f, %f)) <= %f;`, lon, lat, rad)
 	default:
 		fmt.Println("Area type not valid")
-		return nil
+		return ""
 	}
+}
 
+func getSpots(lat float64, lon float64, sql string) Spots {
 	db := connect()
-
 	data, err := db.Query(sql)
 
 	if err != nil {
 		panic(err)
 	}
-
 	var spots Spots
 	count := 0
 	for data.Next() {
@@ -77,16 +94,7 @@ func endpoint(lat float64, lon float64, rad float64, areaType string) Spots {
 	for index, spot := range spots {
 		spots[index].distance = getDist(spot.x, spot.y, lon, lat)
 	}
-
-	sortedSpots := quickSortStart(spots)
-
-	for i := 1; i < len(sortedSpots); i++ {
-		if sortedSpots[i].distance-sortedSpots[i-1].distance < 0.0004498870783 && sortedSpots[i].rating > sortedSpots[i-1].rating {
-			sortedSpots[i], sortedSpots[i-1] = sortedSpots[i-1], sortedSpots[i]
-		}
-	}
-
-	return sortedSpots
+	return spots
 }
 
 func getDist(ax float64, ay float64, bx float64, by float64) float64 {
